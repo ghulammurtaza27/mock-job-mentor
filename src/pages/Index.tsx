@@ -1,12 +1,21 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import Header from "@/components/Header";
+import TaskList from "@/components/TaskList";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="container py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Welcome back!</h1>
+            <p className="text-lg text-muted-foreground mt-2">
+              Continue your engineering journey with these tasks.
+            </p>
+          </div>
+        </div>
+        <TaskList />
+      </main>
     </div>
   );
 };
