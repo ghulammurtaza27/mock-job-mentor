@@ -2,12 +2,17 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import TicketWorkspace from "./TicketWorkspace";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 
 type Ticket = Tables<"tickets">;
 
@@ -32,7 +37,6 @@ const TicketList = () => {
     queryFn: fetchTickets,
   });
 
-  // Subscribe to real-time changes
   useEffect(() => {
     const channel = supabase
       .channel('schema-db-changes')
@@ -121,42 +125,55 @@ const TicketList = () => {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-      {tickets?.map((ticket) => (
-        <Card key={ticket.id} className="flex flex-col">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <CardTitle className="text-xl">{ticket.title}</CardTitle>
-              <Badge className={getStatusColor(ticket.status || 'open')}>
-                {ticket.status || 'Open'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow">
-            <p className="text-muted-foreground">{ticket.description}</p>
-            <div className="flex gap-2 mt-4">
-              <Badge variant="outline">{ticket.type}</Badge>
-              <Badge className={getDifficultyColor(ticket.difficulty)}>
-                {ticket.difficulty}
-              </Badge>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <p className="text-sm text-muted-foreground">
-              {new Date(ticket.created_at || '').toLocaleDateString()}
-            </p>
-            {user && ticket.assigned_to === user.id && (
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedTicket(ticket.id)}
-              >
-                View Details
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-fade-in">
+        {tickets?.map((ticket) => (
+          <Card key={ticket.id} className="flex flex-col">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-xl">{ticket.title}</CardTitle>
+                <Badge className={getStatusColor(ticket.status || 'open')}>
+                  {ticket.status || 'Open'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-grow">
+              <p className="text-muted-foreground">{ticket.description}</p>
+              <div className="flex gap-2 mt-4">
+                <Badge variant="outline">{ticket.type}</Badge>
+                <Badge className={getDifficultyColor(ticket.difficulty)}>
+                  {ticket.difficulty}
+                </Badge>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <p className="text-sm text-muted-foreground">
+                {new Date(ticket.created_at || '').toLocaleDateString()}
+              </p>
+              {user && ticket.assigned_to === user.id && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedTicket(ticket.id)}
+                >
+                  Work on Ticket
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+      <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
+        <DialogContent className="max-w-4xl">
+          {selectedTicket && (
+            <TicketWorkspace
+              ticketId={selectedTicket}
+              onClose={() => setSelectedTicket(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

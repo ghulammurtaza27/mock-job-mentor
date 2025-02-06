@@ -1,9 +1,13 @@
 import Header from "@/components/Header";
 import TaskList from "@/components/TaskList";
 import TicketList from "@/components/TicketList";
+import ProgressDashboard from "@/components/ProgressDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -16,6 +20,14 @@ const Index = () => {
             </p>
           </div>
         </div>
+
+        {user && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">Your Progress</h2>
+            <ProgressDashboard />
+          </div>
+        )}
+
         <Tabs defaultValue="tasks" className="space-y-4">
           <TabsList>
             <TabsTrigger value="tasks">Learning Tasks</TabsTrigger>
