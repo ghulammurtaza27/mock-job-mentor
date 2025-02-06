@@ -19,7 +19,7 @@ const TaskCard = ({ title, description, difficulty, estimatedTime, onClick }: Ta
   }[difficulty];
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer" onClick={onClick}>
+    <Card className="hover:shadow-lg transition-shadow duration-300" onClick={onClick}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl">{title}</CardTitle>
