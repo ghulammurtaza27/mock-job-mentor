@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import TaskCard from "./TaskCard";
 import { Tables } from "@/integrations/supabase/types";
@@ -20,12 +20,50 @@ const fetchTasks = async () => {
 
 const TaskList = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   
   const { data: tasks, isLoading, error } = useQuery({
     queryKey: ["tasks"],
     queryFn: fetchTasks,
   });
+
+  // Subscribe to real-time changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'tasks'
+        },
+        (payload) => {
+          // Invalidate and refetch tasks when changes occur
+          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          
+          // Show toast notification for changes
+          const event = payload.eventType;
+          const message = event === 'INSERT' 
+            ? 'New task added!'
+            : event === 'UPDATE'
+            ? 'Task updated'
+            : 'Task removed';
+            
+          toast({
+            title: "Task Update",
+            description: message,
+          });
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, toast]);
 
   if (error) {
     toast({
