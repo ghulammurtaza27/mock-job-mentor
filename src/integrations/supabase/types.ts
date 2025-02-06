@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      career_progress: {
+        Row: {
+          current_level: Database["public"]["Enums"]["engineer_level"] | null
+          experience_points: number | null
+          id: string
+          reviews_received: number | null
+          tickets_completed: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          current_level?: Database["public"]["Enums"]["engineer_level"] | null
+          experience_points?: number | null
+          id?: string
+          reviews_received?: number | null
+          tickets_completed?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          current_level?: Database["public"]["Enums"]["engineer_level"] | null
+          experience_points?: number | null
+          id?: string
+          reviews_received?: number | null
+          tickets_completed?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -32,6 +62,44 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      reviews: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          reviewer_id: string | null
+          status: string
+          ticket_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          reviewer_id?: string | null
+          status: string
+          ticket_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          reviewer_id?: string | null
+          status?: string
+          ticket_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submissions: {
         Row: {
@@ -104,6 +172,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string
+          difficulty: string
+          id: string
+          status: Database["public"]["Enums"]["ticket_status"] | null
+          title: string
+          type: Database["public"]["Enums"]["ticket_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          difficulty: string
+          id?: string
+          status?: Database["public"]["Enums"]["ticket_status"] | null
+          title: string
+          type: Database["public"]["Enums"]["ticket_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          difficulty?: string
+          id?: string
+          status?: Database["public"]["Enums"]["ticket_status"] | null
+          title?: string
+          type?: Database["public"]["Enums"]["ticket_type"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           completed_at: string | null
@@ -147,7 +254,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      engineer_level: "junior" | "mid" | "senior" | "lead"
+      ticket_status: "open" | "in_progress" | "review" | "completed"
+      ticket_type: "feature" | "bug" | "optimization" | "infrastructure"
     }
     CompositeTypes: {
       [_ in never]: never
