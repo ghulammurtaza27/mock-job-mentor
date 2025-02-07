@@ -14,8 +14,6 @@ export type Database = {
           current_level: Database["public"]["Enums"]["engineer_level"] | null
           experience_points: number | null
           id: string
-          reviews_received: number | null
-          tickets_completed: number | null
           updated_at: string | null
           user_id: string | null
         }
@@ -23,8 +21,6 @@ export type Database = {
           current_level?: Database["public"]["Enums"]["engineer_level"] | null
           experience_points?: number | null
           id?: string
-          reviews_received?: number | null
-          tickets_completed?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -32,68 +28,45 @@ export type Database = {
           current_level?: Database["public"]["Enums"]["engineer_level"] | null
           experience_points?: number | null
           id?: string
-          reviews_received?: number | null
-          tickets_completed?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
       }
-      profiles: {
+      code_reviews: {
         Row: {
-          avatar_url: string | null
-          full_name: string | null
-          id: string
-          updated_at: string | null
-          username: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          full_name?: string | null
-          id: string
-          updated_at?: string | null
-          username?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          full_name?: string | null
-          id?: string
-          updated_at?: string | null
-          username?: string | null
-        }
-        Relationships: []
-      }
-      reviews: {
-        Row: {
-          content: string
+          changes: Json | null
           created_at: string | null
+          feedback: string | null
           id: string
-          reviewer_id: string | null
-          status: string
+          status: string | null
           ticket_id: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
-          content: string
+          changes?: Json | null
           created_at?: string | null
+          feedback?: string | null
           id?: string
-          reviewer_id?: string | null
-          status: string
+          status?: string | null
           ticket_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
-          content?: string
+          changes?: Json | null
           created_at?: string | null
+          feedback?: string | null
           id?: string
-          reviewer_id?: string | null
-          status?: string
+          status?: string | null
           ticket_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "reviews_ticket_id_fkey"
+            foreignKeyName: "code_reviews_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
@@ -101,189 +74,170 @@ export type Database = {
           },
         ]
       }
-      submissions: {
+      profiles: {
         Row: {
-          content: string
-          feedback: string | null
+          created_at: string | null
+          full_name: string | null
           id: string
+          role: string | null
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_name?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      solutions: {
+        Row: {
+          changes: Json
+          commit_message: string
+          created_at: string
+          id: string
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
-          submitted_at: string
-          task_id: string
-          updated_at: string
+          ticket_id: string
           user_id: string
         }
         Insert: {
-          content: string
-          feedback?: string | null
+          changes: Json
+          commit_message: string
+          created_at?: string
           id?: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status: string
-          submitted_at?: string
-          task_id: string
-          updated_at?: string
+          ticket_id: string
           user_id: string
         }
         Update: {
-          content?: string
-          feedback?: string | null
+          changes?: Json
+          commit_message?: string
+          created_at?: string
           id?: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
-          submitted_at?: string
-          task_id?: string
-          updated_at?: string
+          ticket_id?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "submissions_task_id_fkey"
-            columns: ["task_id"]
+            foreignKeyName: "solutions_ticket_id_fkey"
+            columns: ["ticket_id"]
             isOneToOne: false
-            referencedRelation: "tasks"
+            referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
         ]
-      }
-      tasks: {
-        Row: {
-          created_at: string
-          description: string
-          difficulty: string
-          estimated_time: string
-          id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description: string
-          difficulty: string
-          estimated_time: string
-          id?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          difficulty?: string
-          estimated_time?: string
-          id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       tickets: {
         Row: {
           assigned_to: string | null
           created_at: string | null
-          created_by: string | null
           description: string
           difficulty: string
+          estimated_time: number
           id: string
+          started_at: string | null
           status: Database["public"]["Enums"]["ticket_status"] | null
           title: string
-          type: Database["public"]["Enums"]["ticket_type"]
           updated_at: string | null
         }
         Insert: {
           assigned_to?: string | null
           created_at?: string | null
-          created_by?: string | null
           description: string
           difficulty: string
+          estimated_time: number
           id?: string
+          started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"] | null
           title: string
-          type: Database["public"]["Enums"]["ticket_type"]
           updated_at?: string | null
         }
         Update: {
           assigned_to?: string | null
           created_at?: string | null
-          created_by?: string | null
           description?: string
           difficulty?: string
+          estimated_time?: number
           id?: string
+          started_at?: string | null
           status?: Database["public"]["Enums"]["ticket_status"] | null
           title?: string
-          type?: Database["public"]["Enums"]["ticket_type"]
           updated_at?: string | null
         }
         Relationships: []
       }
-      user_progress: {
+      user_repls: {
         Row: {
-          completed_at: string | null
+          created_at: string | null
+          current_ticket_id: string | null
           id: string
-          started_at: string | null
-          status: string
-          task_id: string
-          user_id: string
+          last_accessed: string | null
+          progress: Json | null
+          stackblitz_id: string | null
+          template_id: string
+          user_id: string | null
         }
         Insert: {
-          completed_at?: string | null
+          created_at?: string | null
+          current_ticket_id?: string | null
           id?: string
-          started_at?: string | null
-          status: string
-          task_id: string
-          user_id: string
+          last_accessed?: string | null
+          progress?: Json | null
+          stackblitz_id?: string | null
+          template_id: string
+          user_id?: string | null
         }
         Update: {
-          completed_at?: string | null
+          created_at?: string | null
+          current_ticket_id?: string | null
           id?: string
-          started_at?: string | null
-          status?: string
-          task_id?: string
-          user_id?: string
+          last_accessed?: string | null
+          progress?: Json | null
+          stackblitz_id?: string | null
+          template_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "user_progress_task_id_fkey"
-            columns: ["task_id"]
+            foreignKeyName: "user_repls_current_ticket_id_fkey"
+            columns: ["current_ticket_id"]
             isOneToOne: false
-            referencedRelation: "tasks"
+            referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
         ]
-      }
-      user_roles: {
-        Row: {
-          created_at: string | null
-          id: string
-          role: Database["public"]["Enums"]["user_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          user_id?: string
-        }
-        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      is_admin: {
-        Args: {
-          user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       engineer_level: "junior" | "mid" | "senior" | "lead"
       ticket_status: "open" | "in_progress" | "review" | "completed"
-      ticket_type: "feature" | "bug" | "optimization" | "infrastructure"
-      user_role: "user" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
