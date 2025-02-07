@@ -1,38 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import sdk from '@stackblitz/sdk';
-import { reactAdvancedTemplate } from '@/data/templates/react-advanced';
-import type { Database } from '@/types/supabase';
-import { debounce } from 'lodash';
+import { defaultFiles } from '@/data/templates/react-cra';
+import type { StackBlitzVM, Ticket, UserRepl } from '@/types/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from "sonner";
-import { defaultFiles, type TemplateFiles } from '@/data/templates/react-cra';
-
-type UserRepl = Database['public']['Tables']['user_repls']['Row'];
-
-
-
-// Add type for code review
-type CodeReview = {
-  ticket_id: string;
-  user_id: string;
-  changes: TemplateFiles;
-  status: 'pending' | 'completed';
-};
 
 // Update the VM ref type
-type StackBlitzVM = {
-  editor: {
-    setKeybinding: (bindings: Record<string, () => Promise<boolean>>) => void;
-  };
-  getFsSnapshot: () => Promise<TemplateFiles>;
-};
-
 const TicketWorkspace = () => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
@@ -40,8 +19,8 @@ const TicketWorkspace = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch ticket data
-  const { data: ticket } = useQuery({
+  // Fetch ticket data with proper typing
+  const { data: ticket } = useQuery<Ticket>({
     queryKey: ["ticket", ticketId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,7 +35,7 @@ const TicketWorkspace = () => {
     enabled: !!ticketId
   });
 
-  // Fetch user's REPL with proper caching
+  // Update userRepl query
   const { data: userRepl, isLoading } = useQuery<UserRepl>({
     queryKey: ["userRepl", ticketId],
     queryFn: async () => {
@@ -64,9 +43,7 @@ const TicketWorkspace = () => {
       if (!session.data.session) throw new Error('Not authenticated');
 
       const userId = session.data.session.user.id;
-      console.log('Fetching REPL for user:', userId);
-
-      // Try to find existing REPL
+      
       const { data: existing, error } = await supabase
         .from('user_repls')
         .select('*')
@@ -76,31 +53,25 @@ const TicketWorkspace = () => {
 
       if (error && error.code !== 'PGRST116') throw error;
 
-      // If we found an existing REPL with progress, return it
-      if (existing?.progress && Object.keys(existing.progress).length > 0) {
-        console.log('Found existing REPL with progress:', Object.keys(existing.progress));
+      if (existing?.progress) {
         return existing;
       }
 
-      // Create new REPL with template files
       const { data: newRepl, error: createError } = await supabase
         .from('user_repls')
         .upsert({
-          id: existing?.id, // Will update if exists
+          id: existing?.id,
           template_id: 'react-advanced',
           user_id: userId,
           current_ticket_id: ticketId,
-          progress: defaultFiles // Initialize with template files
+          progress: defaultFiles
         })
         .select()
         .single();
 
       if (createError) throw createError;
-      console.log('Created new REPL with files:', Object.keys(defaultFiles));
       return newRepl;
-    },
-    staleTime: Infinity, // Prevent unnecessary refetches
-    cacheTime: Infinity
+    }
   });
 
   // Save progress mutation
@@ -338,3 +309,11 @@ const TicketWorkspace = () => {
 };
 
 export default TicketWorkspace;
+
+// Add type for code review
+type CodeReview = {
+  ticket_id: string;
+  user_id: string;
+  changes: Record<string, string>;
+  status: 'pending' | 'completed';
+};

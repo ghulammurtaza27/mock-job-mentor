@@ -17,7 +17,7 @@ type Task = Tables<"tickets">;
 
 const fetchTasks = async () => {
   const { data, error } = await supabase
-    .from("tasks")
+    .from("tickets") // Changed from "tasks" to "tickets"
     .select("*")
     .order("created_at", { ascending: false });
 

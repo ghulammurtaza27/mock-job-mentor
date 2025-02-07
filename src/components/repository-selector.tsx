@@ -15,7 +15,7 @@ export function RepositorySelector({ onSelect }: RepositorySelectorProps) {
 
   const { data: repositories, isLoading } = useQuery({
     queryKey: ['repositories', username],
-    queryFn: () => githubService.getRepositories(username),
+    queryFn: () => githubService.getRepository(), // Changed from getRepositories to getRepository
     enabled: !!username,
   });
 
@@ -70,4 +70,4 @@ export function RepositorySelector({ onSelect }: RepositorySelectorProps) {
       </div>
     </div>
   );
-} 
+}
