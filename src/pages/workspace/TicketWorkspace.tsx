@@ -1,17 +1,16 @@
+
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import sdk from '@stackblitz/sdk';
 import { defaultFiles } from '@/data/templates/react-cra';
-import type { StackBlitzVM, Ticket, UserRepl } from '@/types/supabase';
+import type { StackBlitzVM, Ticket, UserRepl, CodeReview } from '@/types/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from "sonner";
 
-// Update the VM ref type
 const TicketWorkspace = () => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
@@ -19,10 +18,11 @@ const TicketWorkspace = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch ticket data with proper typing
   const { data: ticket } = useQuery<Ticket>({
     queryKey: ["ticket", ticketId],
     queryFn: async () => {
+      if (!ticketId) throw new Error('No ticket ID provided');
+      
       const { data, error } = await supabase
         .from('tickets')
         .select('*')
@@ -35,8 +35,7 @@ const TicketWorkspace = () => {
     enabled: !!ticketId
   });
 
-  // Update userRepl query
-  const { data: userRepl, isLoading } = useQuery<UserRepl>({
+  const { data: userRepl } = useQuery<UserRepl>({
     queryKey: ["userRepl", ticketId],
     queryFn: async () => {
       const session = await supabase.auth.getSession();
@@ -64,7 +63,7 @@ const TicketWorkspace = () => {
           template_id: 'react-advanced',
           user_id: userId,
           current_ticket_id: ticketId,
-          progress: defaultFiles
+          progress: defaultFiles as Record<string, string>
         })
         .select()
         .single();
@@ -74,8 +73,7 @@ const TicketWorkspace = () => {
     }
   });
 
-  // Save progress mutation
-  const saveProgress = useMutation<void, Error, Record<string, string>>({
+  const saveProgress = useMutation({
     mutationFn: async (files: Record<string, string>) => {
       if (!userRepl?.id) return;
       
@@ -91,11 +89,13 @@ const TicketWorkspace = () => {
     }
   });
 
-  // Add submit review mutation
-  const submitReview = useMutation<void, Error, CodeReview>({
-    mutationFn: async (review: CodeReview) => {
+  const submitReview = useMutation({
+    mutationFn: async (review: Omit<CodeReview, 'id' | 'created_at' | 'updated_at'>) => {
+      if (!vmRef.current || !ticketId) return;
+      
       // First save current progress
-      await saveProgress.mutateAsync(review.changes);
+      const files = await vmRef.current.getFsSnapshot();
+      await saveProgress.mutateAsync(files);
 
       // Start a transaction to update both tables
       const { error: reviewError } = await supabase
@@ -108,15 +108,13 @@ const TicketWorkspace = () => {
       const { error: ticketError } = await supabase
         .from('tickets')
         .update({ status: 'review' })
-        .eq('id', review.ticket_id);
+        .eq('id', ticketId);
 
       if (ticketError) throw ticketError;
     },
     onSuccess: () => {
       toast.success('Changes submitted for review!');
       setIsSubmitting(false);
-      // Optionally redirect to tickets page
-      // navigate('/tickets');
     },
     onError: (error) => {
       toast.error('Failed to submit: ' + error.message);
@@ -130,23 +128,17 @@ const TicketWorkspace = () => {
     
     try {
       const vm = vmRef.current;
-      
-      // Get the current file content directly from the editor
       const files = await vm.getFsSnapshot();
-      console.log('Current files to save:', files);
-
-      // Save to database
       await saveProgress.mutateAsync(files);
-      
-      console.log('Save successful');
+      toast.success('Progress saved successfully');
     } catch (error) {
       console.error('Error saving:', error);
+      toast.error('Failed to save progress');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Initialize StackBlitz
   useEffect(() => {
     if (!userRepl?.id) return;
 
@@ -161,13 +153,12 @@ const TicketWorkspace = () => {
         if (error) throw error;
 
         const files = latestRepl?.progress || defaultFiles;
-        console.log('Initializing with files:', files);
 
         const vm = await sdk.embedProject('repl-container', {
           title: 'React Advanced Template',
           description: 'A modern React application template',
           template: 'create-react-app',
-          files: files
+          files: files as Record<string, string>
         }, {
           height: 800,
           showSidebar: true,
@@ -180,18 +171,24 @@ const TicketWorkspace = () => {
           view: 'default'
         });
 
-        vmRef.current = vm;
+        // Safe cast as we've defined the exact shape we need
+        vmRef.current = vm as unknown as StackBlitzVM;
 
-        // Handle Cmd+S
-        vm.editor.setKeybinding({
-          'cmd+s': async () => {
-            await handleSave();
-            return false;
+        // Note: Currently StackBlitz SDK doesn't fully support setKeybinding
+        // We'll implement an alternative save mechanism
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            e.preventDefault();
+            handleSave();
           }
-        });
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
 
       } catch (error) {
         console.error('Error initializing StackBlitz:', error);
+        toast.error('Failed to initialize workspace');
       }
     };
 
@@ -199,7 +196,6 @@ const TicketWorkspace = () => {
     return () => { vmRef.current = null; };
   }, [userRepl?.id]);
 
-  // Update submit handler
   const handleSubmitForReview = async () => {
     if (!vmRef.current || !ticketId) return;
     
@@ -208,18 +204,20 @@ const TicketWorkspace = () => {
       if (!session.data.session) throw new Error('Not authenticated');
 
       const files = await vmRef.current.getFsSnapshot();
+      
       await submitReview.mutateAsync({
         ticket_id: ticketId,
         user_id: session.data.session.user.id,
         changes: files,
-        status: 'pending'
+        status: 'pending',
+        feedback: null
       });
     } catch (error) {
       console.error('Error submitting for review:', error);
     }
   };
 
-  if (isLoading) {
+  if (!ticket) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-lg">Loading workspace...</div>
@@ -230,7 +228,6 @@ const TicketWorkspace = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-7xl py-8 space-y-8">
-        {/* Header Section */}
         <div className="flex items-center justify-between gap-4 bg-card p-6 rounded-lg shadow-sm">
           <Button
             variant="ghost"
@@ -242,10 +239,10 @@ const TicketWorkspace = () => {
           </Button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight">
-              {ticket?.title || 'Loading...'}
+              {ticket.title}
             </h1>
             <p className="text-muted-foreground mt-2 text-lg leading-relaxed">
-              {ticket?.description || 'Loading description...'}
+              {ticket.description}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -266,14 +263,12 @@ const TicketWorkspace = () => {
           </div>
         </div>
 
-        {/* StackBlitz Editor */}
         <div 
           id="repl-container" 
           className="w-full h-[800px] rounded-lg overflow-hidden border"
         />
       </div>
 
-      {/* Update Dialog content */}
       <Dialog 
         open={isSubmitting} 
         onOpenChange={setIsSubmitting}
@@ -309,11 +304,3 @@ const TicketWorkspace = () => {
 };
 
 export default TicketWorkspace;
-
-// Add type for code review
-type CodeReview = {
-  ticket_id: string;
-  user_id: string;
-  changes: Record<string, string>;
-  status: 'pending' | 'completed';
-};

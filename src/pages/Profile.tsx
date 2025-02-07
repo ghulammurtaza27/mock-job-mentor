@@ -13,13 +13,13 @@ const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile>({
-    username: "",
-    full_name: "",
-    avatar_url: "",
     id: "",
-    created_at: "",
-    updated_at: "",
-    role: "",
+    username: null,
+    full_name: null,
+    avatar_url: undefined,
+    created_at: null,
+    updated_at: null,
+    role: null,
   });
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +38,12 @@ const Profile = () => {
           .single();
 
         if (error) throw error;
-        if (data) setProfile({ ...data, avatar_url: data.avatar_url || "" });
+        if (data) {
+          setProfile({
+            ...data,
+            avatar_url: data.avatar_url || undefined,
+          });
+        }
       } catch (error) {
         console.error("Error loading profile:", error);
       }
