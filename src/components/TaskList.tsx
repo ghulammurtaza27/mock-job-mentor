@@ -26,7 +26,7 @@ const fetchTasks = async () => {
 };
 
 const TaskList = () => {
-  const { toast } = useToast();
+  const { toast: useToastHook } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -51,13 +51,13 @@ const TaskList = () => {
   // Handle error with useEffect
   useEffect(() => {
     if (error) {
-      toast({
+      useToastHook({
         variant: "destructive",
         title: "Error",
         description: "Failed to load tickets. Please try again later.",
       });
     }
-  }, [error, toast]);
+  }, [error, useToastHook]);
 
   // Subscribe to real-time changes
   useEffect(() => {
@@ -82,7 +82,7 @@ const TaskList = () => {
             ? 'Ticket updated'
             : 'Ticket removed';
             
-          toast({
+          useToastHook({
             title: "Ticket Update",
             description: message,
           });
@@ -93,7 +93,7 @@ const TaskList = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient, toast, user]);
+  }, [queryClient, useToastHook, user]);
 
   // Add start task mutation
   const startTaskMutation = useMutation({
@@ -115,7 +115,7 @@ const TaskList = () => {
     },
     onError: (error) => {
       console.error('Mutation error:', error);
-      toast({
+      useToastHook({
         title: 'Error',
         description: 'Failed to start task',
         variant: 'destructive',
@@ -123,7 +123,7 @@ const TaskList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      toast({
+      useToastHook({
         title: 'Success',
         description: 'Task started successfully',
       });

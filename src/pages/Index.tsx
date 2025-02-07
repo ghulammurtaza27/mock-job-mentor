@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import Header from "@/components/Header";
 import TaskList from "@/components/TaskList";
@@ -14,7 +15,7 @@ const Index = () => {
   const { data: aiTickets, isLoading: isLoadingTickets } = useQuery({
     queryKey: ['ai-tickets'],
     queryFn: () => geminiTicketGenerator.analyzeRepository(),
-    enabled: !!user, // Only fetch if user is logged in
+    enabled: !!user,
   });
 
   return (
@@ -53,7 +54,7 @@ const Index = () => {
                 <Skeleton className="h-24 w-full" />
               </div>
             ) : (
-              <TicketList tickets={aiTickets} />
+              <TicketList aiTickets={aiTickets} />
             )}
           </TabsContent>
         </Tabs>
