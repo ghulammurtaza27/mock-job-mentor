@@ -1,10 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
-const supabaseUrl = 'https://otevpwalhbogsiegvpnc.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZXZwd2FsaGJvZ3NpZWd2cG5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4MjQ2MjUsImV4cCI6MjA1NDQwMDYyNX0.xgmt1g0F3DYEiVa1N0gdbWw85eJWNIoUiXm2boKZhVc';
+if (!import.meta.env.VITE_SUPABASE_URL) {
+  throw new Error('Missing VITE_SUPABASE_URL environment variable');
+}
 
-export const supabase = createClient(
+if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
+}
+
+export const supabase = createClient<Database>(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
   {
