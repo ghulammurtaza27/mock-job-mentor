@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -5,12 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
-
-interface Profile {
-  username: string;
-  full_name: string;
-  avatar_url: string;
-}
+import type { Profile } from "@/types/supabase";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -20,6 +16,10 @@ const Profile = () => {
     username: "",
     full_name: "",
     avatar_url: "",
+    id: "",
+    created_at: "",
+    updated_at: "",
+    role: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +38,7 @@ const Profile = () => {
           .single();
 
         if (error) throw error;
-        if (data) setProfile(data);
+        if (data) setProfile({ ...data, avatar_url: data.avatar_url || "" });
       } catch (error) {
         console.error("Error loading profile:", error);
       }
@@ -55,7 +55,12 @@ const Profile = () => {
       setLoading(true);
       const { error } = await supabase
         .from("profiles")
-        .upsert({ id: user.id, ...profile });
+        .upsert({ 
+          id: user.id,
+          username: profile.username,
+          full_name: profile.full_name,
+          role: profile.role
+        });
 
       if (error) throw error;
 
@@ -100,7 +105,7 @@ const Profile = () => {
           <div className="space-y-2">
             <label className="text-sm font-medium">Username</label>
             <Input
-              value={profile.username}
+              value={profile.username || ""}
               onChange={(e) =>
                 setProfile({ ...profile, username: e.target.value })
               }
@@ -110,7 +115,7 @@ const Profile = () => {
           <div className="space-y-2">
             <label className="text-sm font-medium">Full Name</label>
             <Input
-              value={profile.full_name}
+              value={profile.full_name || ""}
               onChange={(e) =>
                 setProfile({ ...profile, full_name: e.target.value })
               }

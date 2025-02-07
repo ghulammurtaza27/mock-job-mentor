@@ -15,7 +15,6 @@ export type Profile = Tables<'profiles'> & {
 
 export type ProjectFiles = Record<string, string>;
 
-// Add strongly typed response types
 export type SupabaseResponse<T> = {
   data: T | null;
   error: {
@@ -26,10 +25,9 @@ export type SupabaseResponse<T> = {
   } | null;
 };
 
-// Add VM types for StackBlitz
-export type StackBlitzVM = {
+export interface StackBlitzVM {
   editor: {
     setKeybinding?: (bindings: Record<string, () => Promise<boolean>>) => void;
   };
   getFsSnapshot: () => Promise<Record<string, string>>;
-};
+}
