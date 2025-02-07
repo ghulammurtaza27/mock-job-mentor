@@ -1,6 +1,48 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://zrdexjselrpcvdyxnbuo.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyZGV4anNlbHJwY3ZkeXhuYnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDcxOTQ4MzksImV4cCI6MjAyMjc3MDgzOX0.GYNqz5HnQsaJqq_Qn6vx5TYqoHVPtYVjUBwqQBYOJKE';
+const supabaseUrl = 'https://otevpwalhbogsiegvpnc.supabase.co';
+// Get this from your project's API settings
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZXZwd2FsaGJvZ3NpZWd2cG5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4MjQ2MjUsImV4cCI6MjA1NDQwMDYyNX0.xgmt1g0F3DYEiVa1N0gdbWw85eJWNIoUiXm2boKZhVc';
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false
+  }
+});
+
+export const checkDatabaseConnection = async () => {
+  try {
+    // First check auth configuration
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    
+    if (authError) {
+      console.error('Auth configuration error:', {
+        message: authError.message,
+        status: authError.status,
+        name: authError.name
+      });
+      return false;
+    }
+
+    console.log('Database connection successful:', {
+      authStatus: 'configured',
+      session: authData
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error during database check:', error);
+    return false;
+  }
+};
+
+// Run the check when the file loads
+checkDatabaseConnection().then(isConnected => {
+  if (!isConnected) {
+    console.error('Failed to establish database connection. Please check your Supabase configuration.');
+  } else {
+    console.log('Successfully connected to Supabase');
+  }
+});

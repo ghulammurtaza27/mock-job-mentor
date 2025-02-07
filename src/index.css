@@ -46,3 +46,12 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+@layer base {
+  .prose {
+    @apply text-foreground;
+  }
+  .prose pre {
+    @apply bg-muted text-muted-foreground;
+  }
+}

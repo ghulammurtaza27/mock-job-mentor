@@ -1,66 +1,68 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
+import TaskCard from "./TaskCard";
 import { Tables } from "@/integrations/supabase/types";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import TicketWorkspace from "./TicketWorkspace";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 
+
 type Ticket = Tables<"tickets">;
-
-const fetchTickets = async () => {
-  const { data, error } = await supabase
-    .from("tickets")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data;
-};
 
 const TicketList = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const { user } = useAuth();
   
   const { data: tickets, isLoading, error } = useQuery({
-    queryKey: ["tickets"],
-    queryFn: fetchTickets,
+    queryKey: ["tickets", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("assigned_to", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60, // Cache for 1 minute
   });
 
+  // Handle error with useEffect
   useEffect(() => {
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load tickets. Please try again later.",
+      });
+    }
+  }, [error, toast]);
+
+  // Subscribe to real-time changes
+  useEffect(() => {
+    if (!user) return;
+
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('tickets-changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'tickets'
+          table: 'tickets',
+          filter: `assigned_to=eq.${user.id}`
         },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ["tickets"] });
-          
-          const event = payload.eventType;
-          const message = event === 'INSERT' 
-            ? 'New ticket created!'
-            : event === 'UPDATE'
-            ? 'Ticket updated'
-            : 'Ticket removed';
-            
-          toast({
-            title: "Ticket Update",
-            description: message,
-          });
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["tickets", user.id] });
         }
       )
       .subscribe();
@@ -68,7 +70,7 @@ const TicketList = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient, toast]);
+  }, [queryClient, user]);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
@@ -98,14 +100,6 @@ const TicketList = () => {
     }
   };
 
-  if (error) {
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: "Failed to load tickets. Please try again later.",
-    });
-  }
-
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -128,38 +122,14 @@ const TicketList = () => {
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-fade-in">
         {tickets?.map((ticket) => (
-          <Card key={ticket.id} className="flex flex-col">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl">{ticket.title}</CardTitle>
-                <Badge className={getStatusColor(ticket.status || 'open')}>
-                  {ticket.status || 'Open'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <p className="text-muted-foreground">{ticket.description}</p>
-              <div className="flex gap-2 mt-4">
-                <Badge variant="outline">{ticket.type}</Badge>
-                <Badge className={getDifficultyColor(ticket.difficulty)}>
-                  {ticket.difficulty}
-                </Badge>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <p className="text-sm text-muted-foreground">
-                {new Date(ticket.created_at || '').toLocaleDateString()}
-              </p>
-              {user && ticket.assigned_to === user.id && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => setSelectedTicket(ticket.id)}
-                >
-                  Work on Ticket
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
+          <TaskCard
+            key={ticket.id}
+            id={ticket.id}
+            title={ticket.title}
+            description={ticket.description}
+            difficulty={ticket.difficulty as "Easy" | "Medium" | "Hard"}
+            estimatedTime={ticket.estimated_time}
+          />
         ))}
       </div>
 

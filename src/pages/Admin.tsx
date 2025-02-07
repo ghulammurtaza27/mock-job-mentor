@@ -1,65 +1,87 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { Database } from "@/types/supabase";
+
+// Add proper types
+type User = Database['public']['Tables']['profiles']['Row'];
+type Ticket = Database['public']['Tables']['tickets']['Row'];
 
 const Admin = () => {
-  const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
-  const { data: users } = useQuery({
+  // Add error handling and loading state to users query
+  const { data: users, isLoading: isLoadingUsers, error: usersError } = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*");
+        .select("*")
+        .eq('role', 'developer'); // Only fetch developers
+
       if (error) throw error;
       return data;
     },
   });
 
-  const generateTicket = async () => {
-    if (!selectedUser || !selectedCategory) {
-      toast({
-        title: "Error",
-        description: "Please select both a user and ticket category",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
+  // Use mutation for ticket generation
+  const generateTicketMutation = useMutation({
+    mutationFn: async ({ category, assignedTo }: { category: string; assignedTo: string }) => {
       const response = await supabase.functions.invoke('generate-tickets', {
-        body: {
-          category: selectedCategory,
-          assignedTo: selectedUser,
-        },
+        body: { category, assignedTo },
       });
 
       if (response.error) throw response.error;
-
-      toast({
-        title: "Success",
-        description: "Ticket generated and assigned successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate ticket. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Ticket generated and assigned successfully");
+      // Reset form
+      setSelectedUser("");
+      setSelectedCategory("");
+      // Invalidate tickets query to refresh list
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to generate ticket: " + error.message);
     }
+  });
+
+  const handleGenerateTicket = () => {
+    if (!selectedUser || !selectedCategory) {
+      toast.error("Please select both a user and ticket category");
+      return;
+    }
+
+    generateTicketMutation.mutate({
+      category: selectedCategory,
+      assignedTo: selectedUser
+    });
   };
+
+  // Add error state
+  if (usersError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-destructive">Error loading users: {(usersError as Error).message}</div>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,9 +94,13 @@ const Admin = () => {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Assign To</label>
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
+              <Select 
+                value={selectedUser} 
+                onValueChange={setSelectedUser}
+                disabled={isLoadingUsers}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select user" />
+                  <SelectValue placeholder={isLoadingUsers ? "Loading..." : "Select user"} />
                 </SelectTrigger>
                 <SelectContent>
                   {users?.map((user) => (
@@ -88,7 +114,11 @@ const Admin = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Ticket Category</label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select 
+                value={selectedCategory} 
+                onValueChange={setSelectedCategory}
+                disabled={generateTicketMutation.isPending}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -103,10 +133,10 @@ const Admin = () => {
 
             <Button 
               className="w-full" 
-              onClick={generateTicket}
-              disabled={isGenerating}
+              onClick={handleGenerateTicket}
+              disabled={generateTicketMutation.isPending || !selectedUser || !selectedCategory}
             >
-              {isGenerating ? (
+              {generateTicketMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Generating...
