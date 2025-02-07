@@ -9,8 +9,8 @@ interface FileStructure {
 export const generateTicketsFromRepo = async (
   repository: Repository,
   issues?: Issue[]
-): Promise<Ticket[]> => {
-  const tickets: Ticket[] = [];
+): Promise<Partial<Ticket>[]> => {
+  const tickets: Partial<Ticket>[] = [];
 
   // Generate development tickets based on repository structure
   tickets.push({
@@ -26,7 +26,7 @@ export const generateTicketsFromRepo = async (
 
   // Convert GitHub issues to tickets if available
   if (issues?.length) {
-    const issueTickets = issues.map((issue): Ticket => ({
+    const issueTickets = issues.map((issue): Partial<Ticket> => ({
       id: `issue-${issue.id}`,
       title: issue.title,
       description: issue.body || '',
@@ -65,3 +65,4 @@ const estimateTime = (issue: Issue): number => {
   }
   return 60; // 1 hour
 };
+

@@ -1,9 +1,5 @@
 
-import { Database } from '@/integrations/supabase/types';
-
-export type Ticket = Database['public']['Tables']['tickets']['Row'];
-
-export type TicketStatus = Database['public']['Enums']['ticket_status'];
+export type TicketStatus = 'open' | 'in_progress' | 'review' | 'completed';
 
 export interface Repository {
   id: number;
@@ -24,3 +20,4 @@ export interface Issue {
   updated_at: string;
   labels: Array<{ name: string }>;
 }
+

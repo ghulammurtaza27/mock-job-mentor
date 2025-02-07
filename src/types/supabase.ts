@@ -15,19 +15,10 @@ export type Profile = Tables<'profiles'> & {
 
 export type ProjectFiles = Record<string, string>;
 
-export type SupabaseResponse<T> = {
-  data: T | null;
-  error: {
-    message: string;
-    details: string;
-    hint: string;
-    code: string;
-  } | null;
-};
-
 export interface StackBlitzVM {
   editor: {
     setKeybinding?: (bindings: Record<string, () => Promise<boolean>>) => void;
   };
   getFsSnapshot: () => Promise<Record<string, string>>;
 }
+

@@ -5,6 +5,7 @@ import { githubService } from '@/services/github';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search } from 'lucide-react';
+import { RepositoryList } from './repository/RepositoryList';
 import type { Repository } from '@/types/tickets';
 
 interface RepositorySelectorProps {
@@ -15,15 +16,18 @@ export function RepositorySelector({ onSelect }: RepositorySelectorProps) {
   const [username, setUsername] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: repositories, isLoading } = useQuery<Repository[]>({
+  const { data: repositories = [], isLoading } = useQuery<Repository[]>({
     queryKey: ['repositories', username],
-    queryFn: () => githubService.getRepository(),
+    queryFn: async () => {
+      const repo = await githubService.getRepository();
+      return [repo];
+    },
     enabled: !!username,
   });
 
-  const filteredRepos = repositories?.filter(repo => 
+  const filteredRepos = repositories.filter(repo => 
     repo.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  );
 
   return (
     <div className="space-y-4">
@@ -41,7 +45,7 @@ export function RepositorySelector({ onSelect }: RepositorySelectorProps) {
         </Button>
       </div>
 
-      {repositories && repositories.length > 0 && (
+      {repositories.length > 0 && (
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -53,23 +57,11 @@ export function RepositorySelector({ onSelect }: RepositorySelectorProps) {
         </div>
       )}
 
-      <div className="grid gap-2">
-        {filteredRepos.map((repo) => (
-          <Button
-            key={repo.id}
-            variant="outline"
-            className="justify-start"
-            onClick={() => onSelect(repo.full_name)}
-          >
-            <div className="flex flex-col items-start">
-              <span className="font-medium">{repo.name}</span>
-              <span className="text-sm text-muted-foreground">
-                {repo.description || 'No description'}
-              </span>
-            </div>
-          </Button>
-        ))}
-      </div>
+      <RepositoryList 
+        repositories={filteredRepos}
+        onSelect={onSelect}
+      />
     </div>
   );
 }
+
