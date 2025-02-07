@@ -10,11 +10,19 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import type { GeminiTicket } from "@/services/gemini-ticket-generator";
 
 
 type Ticket = Tables<"tickets">;
 
-const TicketList = () => {
+interface TicketListProps {
+  aiTickets?: GeminiTicket[];
+}
+
+const TicketList = ({ aiTickets = [] }: TicketListProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
@@ -100,6 +108,10 @@ const TicketList = () => {
     }
   };
 
+  const handleOpenInStackblitz = (ticket: GeminiTicket) => {
+    window.open(`https://stackblitz.com/github/ghulammurtaza27/pingg`, '_blank');
+  };
+
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -119,31 +131,62 @@ const TicketList = () => {
   }
 
   return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-        {tickets?.map((ticket) => (
-          <TaskCard
-            key={ticket.id}
-            id={ticket.id}
-            title={ticket.title}
-            description={ticket.description}
-            difficulty={ticket.difficulty as "Easy" | "Medium" | "Hard"}
-            estimatedTime={ticket.estimated_time}
-          />
-        ))}
-      </div>
+    <div className="space-y-4">
+      {aiTickets.map((ticket) => (
+        <Card key={ticket.id} className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-xl font-semibold mb-2">{ticket.title}</h3>
+              <p className="text-muted-foreground">{ticket.description}</p>
+            </div>
+            <Badge 
+              variant={ticket.priority === 'high' ? 'destructive' : 'secondary'}
+              className="ml-2"
+            >
+              {ticket.priority}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <h4 className="font-medium mb-2">Learning Objectives</h4>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                {ticket.learningObjectives.map((objective, index) => (
+                  <li key={index}>{objective}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Required Skills</h4>
+              <div className="flex flex-wrap gap-2">
+                {ticket.technicalRequirements.skills.map((skill, index) => (
+                  <Badge key={index} variant="outline">{skill}</Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+              Estimated time: {ticket.estimatedHours} hours
+            </div>
+            <Button onClick={() => handleOpenInStackblitz(ticket)}>
+              Open in StackBlitz
+            </Button>
+          </div>
+        </Card>
+      ))}
 
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
         <DialogContent className="max-w-4xl">
           {selectedTicket && (
-            <TicketWorkspace
-              ticketId={selectedTicket}
-              onClose={() => setSelectedTicket(null)}
-            />
+            <div>
+              {/* Add ticket workspace content here if needed */}
+            </div>
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 };
 

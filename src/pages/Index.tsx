@@ -1,12 +1,21 @@
+import { useQuery } from '@tanstack/react-query';
 import Header from "@/components/Header";
 import TaskList from "@/components/TaskList";
 import TicketList from "@/components/TicketList";
 import ProgressDashboard from "@/components/ProgressDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { geminiTicketGenerator } from '@/services/gemini-ticket-generator';
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const { user } = useAuth();
+
+  const { data: aiTickets, isLoading: isLoadingTickets } = useQuery({
+    queryKey: ['ai-tickets'],
+    queryFn: () => geminiTicketGenerator.analyzeRepository(),
+    enabled: !!user, // Only fetch if user is logged in
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -16,7 +25,7 @@ const Index = () => {
           <div>
             <h1 className="text-4xl font-bold tracking-tight">Welcome back!</h1>
             <p className="text-lg text-muted-foreground mt-2">
-              Continue your engineering journey with these tasks and tickets.
+              Continue your engineering journey with AI-generated tasks and tickets.
             </p>
           </div>
         </div>
@@ -37,7 +46,15 @@ const Index = () => {
             <TaskList />
           </TabsContent>
           <TabsContent value="tickets" className="space-y-4">
-            <TicketList />
+            {isLoadingTickets ? (
+              <div className="space-y-4">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : (
+              <TicketList tickets={aiTickets} />
+            )}
           </TabsContent>
         </Tabs>
       </main>

@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
-import { Bell, User } from "lucide-react";
+import { Bell, User, Code2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const Header = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <header className="border-b">
+    <header className="border-b bg-card">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center space-x-4">
           <h2 className="text-2xl font-bold">MockJob</h2>
@@ -49,6 +49,14 @@ const Header = () => {
             </>
           )}
         </div>
+        <nav className="flex items-center gap-4">
+          <Link to="/workspace">
+            <Button variant="ghost" className="gap-2">
+              <Code2 className="h-4 w-4" />
+              Workspace
+            </Button>
+          </Link>
+        </nav>
       </div>
     </header>
   );
