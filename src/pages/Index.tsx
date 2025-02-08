@@ -1,87 +1,148 @@
+import { useNavigate } from 'react-router-dom'
+import GuidedTask from '@/components/dashboard/GuidedTask'
+import { SimplifiedNav } from '@/components/navigation/SimplifiedNav'
+import { ProgressBar } from '@/components/progress/ProgressBar'
+import { useProgress } from '@/contexts/ProgressContext'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Boxes,
+  Cloud,
+  Code2,
+  Activity,
+  GitBranch,
+  ArrowRight,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Bot
+} from 'lucide-react'
+import { features, categories } from '@/components/dashboard/AllFeatures'
+import { useState } from 'react'
 
-import { useQuery } from '@tanstack/react-query';
-import Header from "@/components/Header";
-import TaskList from "@/components/TaskList";
-import TicketList from "@/components/TicketList";
-import ProgressDashboard from "@/components/ProgressDashboard";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/contexts/AuthContext";
-import { geminiTicketGenerator } from '@/services/gemini-ticket-generator';
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import ErrorBoundaryWrapper from '@/components/ErrorBoundaryWrapper';
-import { Alert, AlertDescription } from "@/components/ui/alert";
+const Dashboard = () => {
+  const navigate = useNavigate()
+  const { progress } = useProgress()
+  const [showHelp, setShowHelp] = useState(false)
 
-const Index = () => {
-  const { user } = useAuth();
+  const quickActions = [
+    {
+      title: "Infrastructure",
+      description: "Cloud & DevOps",
+      icon: <Cloud className="h-5 w-5" />,
+      href: "/infrastructure",
+      badge: "3 resources",
+      onClick: () => navigate('/infrastructure')
+    },
+    {
+      title: "Monitoring",
+      description: "System Health",
+      icon: <Activity className="h-5 w-5" />,
+      href: "/monitoring",
+      badge: "All healthy",
+      onClick: () => navigate('/monitoring')
+    },
+    {
+      title: "Deployments",
+      description: "Release Status",
+      icon: <GitBranch className="h-5 w-5" />,
+      href: "/deployments",
+      badge: "2 pending",
+      onClick: () => navigate('/deployments')
+    }
+  ]
 
-  const { data: aiTickets, isLoading: isLoadingTickets, error: ticketsError } = useQuery({
-    queryKey: ['ai-tickets'],
-    queryFn: () => geminiTicketGenerator.analyzeRepository(),
-    enabled: !!user,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    retry: 2,
-  });
+  const handleViewAllActions = () => {
+    navigate('/features', { replace: false })
+  }
+
+  const handleCustomizeDashboard = () => {
+    navigate('/workspace/advanced-dashboard')
+  }
+
+  const handleProgressClick = () => {
+    navigate('/career') // Navigate to career/progress page
+  }
+
+  const handleStreakClick = () => {
+    navigate('/learning') // Navigate to learning page to continue streak
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <ErrorBoundaryWrapper name="Header">
-        <Header />
-      </ErrorBoundaryWrapper>
+    <div className="container mx-auto py-8 max-w-5xl">
+      {/* Welcome Message */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Welcome to Your Workspace</h1>
+        <p className="text-muted-foreground">
+          Follow the steps below to start working on your assigned project
+        </p>
+      </div>
 
-      <main className="container py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">
-              Welcome back!
-            </h1>
-            <p className="text-lg text-muted-foreground mt-2">
-              Continue your engineering journey with AI-generated tasks and tickets.
-            </p>
+      {/* Main Workflow */}
+      {Object.entries(categories).map(([category, title]) => (
+        <div key={category} className="mb-12">
+          <h2 className="text-xl font-semibold mb-6 flex items-center">
+            {title}
+            {category === 'setup' && (
+              <Badge variant="default" className="ml-2">Active</Badge>
+            )}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {features
+              .filter(feature => feature.category === category)
+              .map(feature => (
+                <Card
+                  key={feature.title}
+                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => navigate(feature.href)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      {feature.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium">{feature.title}</h3>
+                        {feature.badge && (
+                          <Badge variant="secondary" className="text-xs">
+                            {feature.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
           </div>
         </div>
+      ))}
 
-        {user && (
-          <ErrorBoundaryWrapper name="ProgressDashboard">
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold mb-4">Your Progress</h2>
-              <ProgressDashboard />
-            </div>
-          </ErrorBoundaryWrapper>
-        )}
-
-        <Tabs defaultValue="tasks" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="tasks">Learning Tasks</TabsTrigger>
-            <TabsTrigger value="tickets">Work Tickets</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="tasks" className="space-y-4">
-            <ErrorBoundaryWrapper name="TaskList">
-              <TaskList />
-            </ErrorBoundaryWrapper>
-          </TabsContent>
-
-          <TabsContent value="tickets" className="space-y-4">
-            <ErrorBoundaryWrapper name="TicketList">
-              {isLoadingTickets ? (
-                <div className="flex justify-center p-8">
-                  <LoadingSpinner size={32} />
-                </div>
-              ) : ticketsError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    Failed to load tickets. Please try again later.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <TicketList aiTickets={aiTickets} />
-              )}
-            </ErrorBoundaryWrapper>
-          </TabsContent>
-        </Tabs>
-      </main>
+      {/* Quick Help */}
+      <Card className="p-6 bg-muted/50">
+        <div className="flex items-start space-x-4">
+          <Bot className="h-6 w-6 text-primary" />
+          <div>
+            <h3 className="font-medium mb-1">Need Help?</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your AI Mentor is available 24/7 to help you with:
+            </p>
+            <ul className="text-sm space-y-2 text-muted-foreground">
+              <li>• Understanding the codebase</li>
+              <li>• Git workflow questions</li>
+              <li>• Code implementation guidance</li>
+              <li>• Best practices and suggestions</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
     </div>
-  );
-};
+  )
+}
 
-export default Index;
+export default Dashboard

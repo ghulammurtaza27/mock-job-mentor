@@ -1,7 +1,48 @@
-
 import { Database as GeneratedDatabase } from '@/integrations/supabase/types';
 
-export type Database = GeneratedDatabase;
+export interface Profile {
+  id: uuid;
+  name: string | null;
+  email: string | null;
+  updated_at: string | null;
+}
+
+// Extend the generated database types with our custom types
+export interface Database extends GeneratedDatabase {
+  public: {
+    Tables: {
+      profiles: {
+        Row: Profile;
+        Insert: Omit<Profile, 'updated_at'>;
+        Update: Partial<Omit<Profile, 'id'>>;
+      };
+      user_repl_files: {
+        Row: {
+          id: string;
+          user_repl_id: string;
+          file_path: string;
+          content: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_repl_id: string;
+          file_path: string;
+          content: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_repl_id?: string;
+          file_path?: string;
+          content?: string;
+          updated_at?: string;
+        };
+      };
+      // ... other tables
+    };
+  };
+}
 
 export type Tables<T extends keyof Database['public']['Tables']> = 
   Database['public']['Tables'][T]['Row'];
@@ -9,15 +50,6 @@ export type Tables<T extends keyof Database['public']['Tables']> =
 export type UserRepl = Tables<'user_repls'>;
 export type Ticket = Tables<'tickets'>;
 export type CodeReview = Tables<'code_reviews'>;
-export type Profile = {
-  username?: string | null;
-  full_name?: string | null;
-  id: string;
-  created_at?: string | null;
-  updated_at?: string | null;
-  role?: string | null;
-  avatar_url?: string;
-};
 
 export type ProjectFiles = Record<string, string>;
 
@@ -32,3 +64,8 @@ export interface StackBlitzVM {
   };
   getFsSnapshot: () => Promise<Record<string, string>>;
 }
+
+export type Tables = {
+  profiles: Profile;
+  // Add other tables here
+};

@@ -1,6 +1,5 @@
-
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/integrations/supabase/types';
+import { Database } from '@/types/supabase';
 
 if (!import.meta.env.VITE_SUPABASE_URL) {
   throw new Error('Missing VITE_SUPABASE_URL environment variable');

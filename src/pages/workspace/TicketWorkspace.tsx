@@ -1,24 +1,62 @@
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import sdk from '@stackblitz/sdk';
-import { defaultFiles } from '@/data/templates/react-cra';
-import type { StackBlitzVM, Ticket, UserRepl, CodeReview } from '@/types/supabase';
+import { ArrowLeft, Loader2 } from "lucide-react";
+import type { Ticket, UserRepl, CodeReview } from '@/types/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from "sonner";
+import { PostgrestResponse } from '@supabase/supabase-js';
+import { Card } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Clock,
+  AlertTriangle,
+  Star,
+  CheckCircle2,
+  Calendar
+} from 'lucide-react'
+import type { Ticket as WorkspaceTicket } from '@/types/workspace'
+import type { StackBlitzVM } from '@/types/stackblitz'
+import { StackBlitzService } from '@/services/stackblitz'
+
+const REPO_OWNER = 'oldboyxx';
+const REPO_NAME = 'jira_clone';
+
+interface ReplFile {
+  file_path: string;
+}
+
+interface ReplFileContent {
+  file_path: string;
+  content: string;
+}
 
 const TicketWorkspace = () => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
-  const vmRef = useRef<StackBlitzVM | null>(null);
+  const stackblitzRef = useRef<StackBlitzService | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [ticket, setTicket] = useState<WorkspaceTicket | null>(null);
+  const [activeTab, setActiveTab] = useState('details');
 
-  const { data: ticket } = useQuery<Ticket>({
+  // Initialize StackBlitz service
+  useEffect(() => {
+    stackblitzRef.current = new StackBlitzService('repl-container');
+    return () => {
+      if (stackblitzRef.current) {
+        stackblitzRef.current.destroy();
+      }
+    };
+  }, []);
+
+  const { data: ticketData, isLoading: isTicketLoading } = useQuery<Ticket>({
     queryKey: ["ticket", ticketId],
     queryFn: async () => {
       if (!ticketId) throw new Error('No ticket ID provided');
@@ -63,7 +101,7 @@ const TicketWorkspace = () => {
           template_id: 'react-advanced',
           user_id: userId,
           current_ticket_id: ticketId,
-          progress: defaultFiles as Record<string, string>
+          progress: {}
         })
         .select()
         .single();
@@ -73,38 +111,106 @@ const TicketWorkspace = () => {
     }
   });
 
-  const saveProgress = useMutation({
-    mutationFn: async (files: Record<string, string>) => {
+  const saveFiles = useMutation({
+    mutationFn: async (files: { path: string; content: string }[]) => {
       if (!userRepl?.id) return;
       
+      // Get current files
+      const { data: existingFiles, error: fetchError } = await supabase
+        .from('user_repl_files')
+        .select('file_path') as PostgrestResponse<ReplFile[]>;
+
+      if (fetchError) throw fetchError;
+
+      const existingPaths = new Set(existingFiles?.map(f => f.file_path) || []);
+      const now = new Date().toISOString();
+
+      // Prepare upsert data
+      const upsertData = files.map(file => ({
+        user_repl_id: userRepl.id,
+        file_path: file.path,
+        content: file.content,
+        updated_at: now,
+        created_at: existingPaths.has(file.path) ? undefined : now
+      }));
+
       const { error } = await supabase
-        .from('user_repls')
-        .update({
-          progress: files,
-          last_accessed: new Date().toISOString()
-        })
-        .eq('id', userRepl.id);
+        .from('user_repl_files')
+        .upsert(upsertData, {
+          onConflict: 'user_repl_id,file_path'
+        });
 
       if (error) throw error;
+
+      // Update last_accessed in user_repls
+      const { error: updateError } = await supabase
+        .from('user_repls')
+        .update({ last_accessed: now })
+        .eq('id', userRepl.id);
+
+      if (updateError) throw updateError;
     }
   });
 
+  const handleSave = useCallback(async () => {
+    if (!stackblitzRef.current) return;
+
+    try {
+      setIsSaving(true);
+      const files = await stackblitzRef.current.getFiles();
+      await saveFiles.mutateAsync(
+        Object.entries(files).map(([path, content]) => ({ path, content }))
+      );
+      toast.success('Changes saved successfully');
+    } catch (error) {
+      console.error('Error saving files:', error);
+      toast.error('Failed to save changes');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [saveFiles]);
+
+  // Add keyboard shortcut for saving
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave]);
+
   const submitReview = useMutation({
     mutationFn: async (review: Omit<CodeReview, 'id' | 'created_at' | 'updated_at'>) => {
-      if (!vmRef.current || !ticketId) return;
+      if (!ticketId) return;
       
-      // First save current progress
-      const files = await vmRef.current.getFsSnapshot();
-      await saveProgress.mutateAsync(files);
+      // First save current files
+      await handleSave();
 
-      // Start a transaction to update both tables
+      // Get all files for this repl
+      const { data: files, error: filesError } = await supabase
+        .from('user_repl_files')
+        .select('file_path, content') as PostgrestResponse<ReplFileContent[]>;
+
+      if (filesError) throw filesError;
+
+      // Transform files into the format expected by code_reviews
+      const changes = files?.reduce((acc, file) => ({
+        ...acc,
+        [file.file_path]: file.content
+      }), {});
+
+      // Create the review
       const { error: reviewError } = await supabase
         .from('code_reviews')
-        .insert([review]);
+        .insert([{ ...review, changes }]);
 
       if (reviewError) throw reviewError;
 
-      // Update ticket status to 'in_review'
+      // Update ticket status
       const { error: ticketError } = await supabase
         .from('tickets')
         .update({ status: 'review' })
@@ -121,23 +227,6 @@ const TicketWorkspace = () => {
       setIsSubmitting(false);
     }
   });
-
-  const handleSave = async () => {
-    if (!vmRef.current) return;
-    setIsSaving(true);
-    
-    try {
-      const vm = vmRef.current;
-      const files = await vm.getFsSnapshot();
-      await saveProgress.mutateAsync(files);
-      toast.success('Progress saved successfully');
-    } catch (error) {
-      console.error('Error saving:', error);
-      toast.error('Failed to save progress');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   useEffect(() => {
     if (!userRepl?.id) return;
@@ -217,6 +306,30 @@ const TicketWorkspace = () => {
     }
   };
 
+  useEffect(() => {
+    // TODO: Fetch ticket data from API
+    // Mock data for now
+    setTicket({
+      id: ticketId || '1',
+      title: 'Implement User Authentication',
+      description: 'Add login and signup functionality with OAuth support',
+      status: 'in_progress',
+      priority: 'high',
+      type: 'feature',
+      assignee: 'John Doe',
+      createdAt: new Date(),
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      points: 8,
+      tags: ['auth', 'frontend', 'security'],
+      progress: 35,
+      subtasks: [
+        { id: '1', title: 'Setup OAuth providers', completed: true },
+        { id: '2', title: 'Implement login flow', completed: false },
+        { id: '3', title: 'Add form validation', completed: false }
+      ]
+    });
+  }, [ticketId]);
+
   if (!ticket) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -225,48 +338,143 @@ const TicketWorkspace = () => {
     );
   }
 
+  const priorityColors = {
+    low: 'bg-blue-500',
+    medium: 'bg-yellow-500',
+    high: 'bg-red-500'
+  }
+
+  const handleSubtaskToggle = (subtaskId: string) => {
+    if (!ticket) return
+    const updatedSubtasks = ticket.subtasks.map(st => 
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    )
+    setTicket({
+      ...ticket,
+      subtasks: updatedSubtasks,
+      progress: Math.round((updatedSubtasks.filter(st => st.completed).length / updatedSubtasks.length) * 100)
+    })
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-7xl py-8 space-y-8">
-        <div className="flex items-center justify-between gap-4 bg-card p-6 rounded-lg shadow-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="hover:bg-muted"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">
-              {ticket.title}
-            </h1>
-            <p className="text-muted-foreground mt-2 text-lg leading-relaxed">
-              {ticket.description}
-            </p>
+    <div className="container mx-auto p-4 space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{ticket.title}</h1>
+            <Badge variant="outline">{ticket.type}</Badge>
+            <div className={`w-3 h-3 rounded-full ${priorityColors[ticket.priority]}`} />
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </Button>
-            <Button 
-              variant="default"
-              onClick={handleSubmitForReview}
-              className="gap-2"
-            >
-              Submit for Review
-            </Button>
+          <div className="flex gap-4 mt-2 text-gray-600">
+            <span className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              {new Date(ticket.createdAt).toLocaleDateString()}
+            </span>
+            <span className="flex items-center gap-1">
+              <Star className="w-4 h-4" />
+              {ticket.points} points
+            </span>
+            {ticket.dueDate && (
+              <span className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                Due: {new Date(ticket.dueDate).toLocaleDateString()}
+              </span>
+            )}
           </div>
         </div>
+        <Button variant="outline">Edit Ticket</Button>
+      </div>
 
-        <div 
-          id="repl-container" 
-          className="w-full h-[800px] rounded-lg overflow-hidden border"
-        />
+      <Card className="p-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="font-semibold">Progress</span>
+          <span>{ticket.progress}%</span>
+        </div>
+        <Progress value={ticket.progress} className="h-2" />
+      </Card>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="subtasks">Subtasks</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
+          <Card className="p-6">
+            <h3 className="font-semibold mb-2">Description</h3>
+            <p className="text-gray-600">{ticket.description}</p>
+            
+            <div className="mt-4">
+              <h3 className="font-semibold mb-2">Tags</h3>
+              <div className="flex gap-2">
+                {ticket.tags.map(tag => (
+                  <Badge key={tag} variant="secondary">{tag}</Badge>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="subtasks">
+          <Card className="p-6">
+            <div className="space-y-4">
+              {ticket.subtasks.map(subtask => (
+                <div key={subtask.id} className="flex items-center gap-3">
+                  <Checkbox
+                    checked={subtask.completed}
+                    onCheckedChange={() => handleSubtaskToggle(subtask.id)}
+                  />
+                  <span className={subtask.completed ? 'line-through text-gray-500' : ''}>
+                    {subtask.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card className="p-6">
+            {/* TODO: Implement activity log */}
+            <p className="text-gray-600">Activity log coming soon...</p>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex items-center justify-between gap-4 bg-card p-6 rounded-lg shadow-sm">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          className="hover:bg-muted"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight">
+            {ticket.title}
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg leading-relaxed">
+            {ticket.description}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+          <Button 
+            variant="default"
+            onClick={() => setIsSubmitting(true)}
+            className="gap-2"
+          >
+            Submit for Review
+          </Button>
+        </div>
       </div>
 
       <Dialog 

@@ -1,38 +1,43 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import { useToast } from '@/components/ui/use-toast';
 
 type AuthContextType = {
   user: User | null;
-  signUp: (email: string, password: string) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
-  signOut: () => Promise<void>;
   loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  login: async () => {},
+  signup: async () => {},
+  logout: async () => {},
+  resetPassword: async () => {},
+  updateProfile: async () => {},
+  signOut: async () => {},
+});
 
-// Separate the hook definition
-function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
-function AuthProvider({ children }: { children: React.ReactNode }) {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Check active sessions
+    // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for changes
+    // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -41,60 +46,155 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-        options: {
-          data: {
-            email_confirmed: true
-          }
-        }
       });
 
-      console.log('Signup attempt:', { email, success: !error });
-      
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      return data;
+      toast({
+        title: 'Welcome back!',
+        description: 'Successfully logged in.',
+      });
     } catch (error) {
-      console.error('Signup error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to login',
+      });
       throw error;
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const signup = async (email: string, password: string, name: string) => {
+    try {
+      // Sign up the user with metadata
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name // This will be available in raw_user_meta_data
+          },
+        }
+      });
 
-    if (error) throw error;
-    return data;
+      console.log('Auth signup response:', { authData, signUpError });
+
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error('No user data returned');
+
+      // The profile will be created automatically by the database trigger
+      toast({
+        title: 'Welcome!',
+        description: 'Account created successfully. Please check your email for verification.',
+      });
+
+      return authData;
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create account',
+      });
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      toast({
+        title: 'Goodbye!',
+        description: 'Successfully logged out.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to logout',
+      });
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Check your email',
+        description: 'We sent you a password reset link.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to send reset link',
+      });
+      throw error;
+    }
+  };
+
+  const updateProfile = async (data: Partial<User>) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(data)
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Profile updated successfully.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update profile',
+      });
+      throw error;
+    }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  };
-
-  const value = {
-    user,
-    signUp,
-    signIn,
-    signOut,
-    loading,
+    await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        signup,
+        logout,
+        resetPassword,
+        updateProfile,
+        signOut,
+      }}
+    >
       {!loading && children}
     </AuthContext.Provider>
   );
-}
+};
 
-// Export both the provider and the hook
-export { AuthProvider, useAuth };
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

@@ -1,5 +1,5 @@
-
 import { Octokit } from '@octokit/rest';
+import { supabase } from '@/lib/supabase';
 
 const REPO_OWNER = 'ghulammurtaza27';
 const REPO_NAME = 'pingg';
@@ -34,9 +34,99 @@ export interface Issue {
   updated_at: string;
 }
 
-export const githubService = {
+export interface GitHubConfig {
+  orgName: string;
+  repoPrefix: string;
+  defaultBranch: string;
+}
+
+const config: GitHubConfig = {
+  orgName: 'mock-job-mentor',
+  repoPrefix: 'project-',
+  defaultBranch: 'main'
+};
+
+export class GitHubService {
+  private octokit: Octokit;
+  
+  constructor(token: string) {
+    this.octokit = new Octokit({ auth: token });
+  }
+
+  async createProjectRepo(userId: string, projectName: string) {
+    try {
+      const repoName = `${config.repoPrefix}${projectName}`;
+      
+      const response = await this.octokit.repos.createInOrg({
+        org: config.orgName,
+        name: repoName,
+        private: true,
+        auto_init: true,
+        gitignore_template: 'Node',
+        description: `Mock Job Project: ${projectName}`
+      });
+
+      // Add user as collaborator
+      await this.octokit.repos.addCollaborator({
+        owner: config.orgName,
+        repo: repoName,
+        username: userId,
+        permission: 'push'
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error creating GitHub repo:', error);
+      throw error;
+    }
+  }
+
+  async setupWorkflowsAndActions(repoName: string) {
+    // Add GitHub Actions workflows for CI/CD
+    const workflows = {
+      'ci.yml': `
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+`,
+      'deploy.yml': `
+name: Deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: aws-actions/configure-aws-credentials@v1
+      - run: npm ci
+      - run: npm run deploy
+`
+    };
+
+    for (const [filename, content] of Object.entries(workflows)) {
+      await this.octokit.repos.createOrUpdateFileContents({
+        owner: config.orgName,
+        repo: repoName,
+        path: `.github/workflows/${filename}`,
+        message: `Add ${filename} workflow`,
+        content: Buffer.from(content).toString('base64'),
+        branch: config.defaultBranch
+      });
+    }
+  }
+
   async getRepository(): Promise<Repository> {
-    const { data } = await octokit.repos.get({
+    const { data } = await this.octokit.repos.get({
       owner: REPO_OWNER,
       repo: REPO_NAME,
     });
@@ -54,10 +144,10 @@ export const githubService = {
       created_at: data.created_at,
       updated_at: data.updated_at
     };
-  },
+  }
 
   async getIssues(): Promise<Issue[]> {
-    const { data } = await octokit.issues.listForRepo({
+    const { data } = await this.octokit.issues.listForRepo({
       owner: REPO_OWNER,
       repo: REPO_NAME,
       state: 'all',
@@ -77,14 +167,14 @@ export const githubService = {
       created_at: issue.created_at,
       updated_at: issue.updated_at
     }));
-  },
+  }
 
   async getRepositoryContent(path: string = ''): Promise<any> {
-    const { data } = await octokit.repos.getContent({
+    const { data } = await this.octokit.repos.getContent({
       owner: REPO_OWNER,
       repo: REPO_NAME,
       path,
     });
     return data;
   }
-}; 
+} 
