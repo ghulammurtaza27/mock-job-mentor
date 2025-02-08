@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string
+          icon: string
+          id: string
+          requirements: Json | null
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description: string
+          icon: string
+          id?: string
+          requirements?: Json | null
+          title: string
+          xp_reward: number
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string
+          icon?: string
+          id?: string
+          requirements?: Json | null
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
       career_progress: {
         Row: {
           current_level: Database["public"]["Enums"]["engineer_level"] | null
@@ -74,30 +107,167 @@ export type Database = {
           },
         ]
       }
-      profiles: {
+      learning_paths: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string
+          id: string
+          required_achievements: Json | null
+          required_level: number | null
+          required_skills: Json | null
+          title: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description: string
+          id?: string
+          required_achievements?: Json | null
+          required_level?: number | null
+          required_skills?: Json | null
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          required_achievements?: Json | null
+          required_level?: number | null
+          required_skills?: Json | null
+          title?: string
+        }
+        Relationships: []
+      }
+      learning_steps: {
         Row: {
           created_at: string | null
-          full_name: string | null
+          description: string
+          duration: string
           id: string
-          role: string | null
-          updated_at: string | null
-          username: string | null
+          order_index: number
+          path_id: string
+          prerequisites: Json | null
+          title: string
+          type: string
+          xp_reward: number
         }
         Insert: {
           created_at?: string | null
-          full_name?: string | null
-          id: string
-          role?: string | null
-          updated_at?: string | null
-          username?: string | null
+          description: string
+          duration: string
+          id?: string
+          order_index: number
+          path_id: string
+          prerequisites?: Json | null
+          title: string
+          type: string
+          xp_reward: number
         }
         Update: {
           created_at?: string | null
-          full_name?: string | null
+          description?: string
+          duration?: string
           id?: string
-          role?: string | null
+          order_index?: number
+          path_id?: string
+          prerequisites?: Json | null
+          title?: string
+          type?: string
+          xp_reward?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_steps_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          link: string | null
+          message: string
+          metadata: Json | null
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          email: string | null
+          id: string
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          email?: string | null
+          id: string
+          name?: string | null
           updated_at?: string | null
-          username?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: string
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      skills: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -187,6 +357,147 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_learning_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          status: string
+          step_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          step_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          step_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_learning_progress_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "learning_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_progress: {
+        Row: {
+          completed_tasks: number | null
+          created_at: string | null
+          id: string
+          last_activity: string | null
+          level: number | null
+          next_level_xp: number | null
+          streak_days: number | null
+          updated_at: string | null
+          user_id: string
+          xp: number | null
+        }
+        Insert: {
+          completed_tasks?: number | null
+          created_at?: string | null
+          id?: string
+          last_activity?: string | null
+          level?: number | null
+          next_level_xp?: number | null
+          streak_days?: number | null
+          updated_at?: string | null
+          user_id: string
+          xp?: number | null
+        }
+        Update: {
+          completed_tasks?: number | null
+          created_at?: string | null
+          id?: string
+          last_activity?: string | null
+          level?: number | null
+          next_level_xp?: number | null
+          streak_days?: number | null
+          updated_at?: string | null
+          user_id?: string
+          xp?: number | null
+        }
+        Relationships: []
+      }
+      user_repl_files: {
+        Row: {
+          content: string
+          created_at: string
+          file_path: string
+          id: string
+          updated_at: string
+          user_repl_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          file_path: string
+          id?: string
+          updated_at?: string
+          user_repl_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          updated_at?: string
+          user_repl_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_repl_files_user_repl_id_fkey"
+            columns: ["user_repl_id"]
+            isOneToOne: false
+            referencedRelation: "user_repls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_repls: {
         Row: {
           created_at: string | null
@@ -224,6 +535,47 @@ export type Database = {
             columns: ["current_ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_skills: {
+        Row: {
+          created_at: string | null
+          id: string
+          level: string
+          max_progress: number | null
+          progress: number | null
+          skill_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          level: string
+          max_progress?: number | null
+          progress?: number | null
+          skill_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          level?: string
+          max_progress?: number | null
+          progress?: number | null
+          skill_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
             referencedColumns: ["id"]
           },
         ]
